@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Schedule">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a18">
+<title>Schedule - カレンダー</title>
+
+<!-- PWA Manifest (inline via blob) -->
+<script>
+const manifest = {
+  name: "Schedule - カレンダー & スケジュール管理",
+  short_name: "Schedule",
+  description: "画像付きカレンダースケジュールアプリ",
+  start_url: "./",
+  display: "standalone",
+  background_color: "#0a0a18",
+  theme_color: "#0a0a18",
+  icons: [
+    { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230a0a18'/><text x='50' y='58' text-anchor='middle' font-size='48' fill='%234ECDC4'>📅</text></svg>", sizes: "any", type: "image/svg+xml" }
+  ]
+};
+const blob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
+const link = document.createElement("link");
+link.rel = "manifest";
+link.href = URL.createObjectURL(blob);
+document.head.appendChild(link);
+</script>
+
+<!-- App Icon for iOS -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='36' fill='%230a0a18'/><text x='90' y='110' text-anchor='middle' font-size='90' fill='%234ECDC4'>📅</text></svg>">
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700;900&family=Space+Mono:wght@400;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a18;
+  --bg2: #12122a;
+  --surface: rgba(255,255,255,0.02);
+  --surface-hover: rgba(255,255,255,0.05);
+  --border: rgba(255,255,255,0.06);
+  --text: #e0e0ec;
+  --text-dim: #8888a0;
+  --text-muted: #5a5a7a;
+  --accent1: #6C5CE7;
+  --accent2: #45B7D1;
+  --accent3: #4ECDC4;
+  --danger: #E8564A;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans JP', 'SF Pro Display', -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+input, textarea {
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* ===== APP LAYOUT ===== */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  max-width: 600px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+/* ===== HEADER ===== */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  flex-shrink: 0;
+}
+.header-title {
+  font-size: 20px;
+  font-weight: 900;
+  font-family: 'Space Mono', monospace;
+  background: linear-gradient(135deg, var(--accent1), var(--accent2), var(--accent3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+}
+.header-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  margin-top: 1px;
+}
+
+/* ===== MONTH NAV ===== */
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px 12px;
+}
+.month-nav button {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  padding: 4px 6px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.month-nav button:active { background: rgba(255,255,255,0.08); }
+.month-label {
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Space Mono', monospace;
+  min-width: 110px;
+  text-align: center;
+}
+
+/* ===== CALENDAR GRID ===== */
+.cal-section {
+  padding: 8px 14px;
+  flex-shrink: 0;
+}
+.day-headers {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+}
+.day-header {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 0;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.day-header.sun { color: rgba(232,86,74,0.5); }
+.day-header.sat { color: rgba(69,183,209,0.5); }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.cal-cell {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 6px;
+  cursor: pointer;
+  position: relative;
+  background: var(--surface);
+  border: 1px solid transparent;
+  transition: all 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.cal-cell:active { background: var(--surface-hover); }
+.cal-cell.today .day-num {
+  background: linear-gradient(135deg, var(--accent3), var(--accent2));
+  color: var(--bg) !important;
+  font-weight: 800;
+}
+.cal-cell.selected {
+  background: rgba(108,92,231,0.12);
+  border-color: rgba(108,92,231,0.35);
+}
+.day-num {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'Space Mono', monospace;
+}
+.day-num.sun { color: var(--danger); }
+.day-num.sat { color: var(--accent2); }
+.event-dots {
+  display: flex;
+  gap: 3px;
+  margin-top: 3px;
+}
+.event-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+/* ===== DETAIL PANEL ===== */
+.detail-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 18px 100px;
+  -webkit-overflow-scrolling: touch;
+}
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0 12px;
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 10;
+}
+.detail-date {
+  font-size: 20px;
+  font-weight: 800;
+  font-family: 'Space Mono', monospace;
+}
+.detail-month {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.add-btn {
+  background: linear-gradient(135deg, var(--accent1), var(--accent2));
+  border: none;
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s;
+  font-family: inherit;
+}
+.add-btn:active { transform: scale(0.96); }
+
+.empty-state {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--text-muted);
+}
+.empty-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+.empty-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.placeholder-state {
+  text-align: center;
+  padding: 60px 0;
+  color: var(--text-muted);
+}
+
+/* ===== EVENT CARD ===== */
+.event-card {
+  background: rgba(255,255,255,0.03);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 10px;
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.04);
+  transition: transform 0.12s;
+  animation: slideUp 0.25s ease-out;
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.event-card-accent {
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: 2px;
+}
+.event-card-body {
+  padding-left: 10px;
+}
+.event-time {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.event-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 3px 0;
+  line-height: 1.35;
+}
+.event-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  margin-top: 4px;
+}
+.event-images {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.event-images.single { grid-template-columns: 1fr; }
+.event-images.multi { grid-template-columns: 1fr 1fr; }
+.event-img-wrap {
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0d0d1a;
+}
+.event-images.single .event-img-wrap { aspect-ratio: 16/9; }
+.event-images.multi .event-img-wrap { aspect-ratio: 1; }
+.event-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.event-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  justify-content: flex-end;
+}
+.ev-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.12s;
+}
+.ev-btn:active { background: rgba(255,255,255,0.08); }
+.ev-btn.danger { color: var(--danger); border-color: rgba(232,86,74,0.15); }
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,10,24,0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-sheet {
+  background: #1a1a2e;
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px 22px calc(24px + var(--safe-bottom));
+  animation: sheetUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  -webkit-overflow-scrolling: touch;
+}
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.modal-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.15);
+  margin: 0 auto 18px;
+}
+.modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  font-family: 'Space Mono', monospace;
+  background: linear-gradient(135deg, var(--accent1), var(--accent3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 22px;
+}
+
+.form-group { margin-bottom: 16px; }
+.form-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.form-input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus { border-color: rgba(108,92,231,0.4); }
+textarea.form-input { resize: vertical; min-height: 60px; }
+
+.color-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.color-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.color-dot.active {
+  border-color: #fff;
+  transform: scale(1.1);
+}
+.color-dot:active { transform: scale(0.9); }
+
+.upload-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: 2px dashed rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02);
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.upload-zone:active { border-color: rgba(108,92,231,0.4); }
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.preview-item {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+}
+.preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.preview-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.7);
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+}
+.btn-cancel {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.btn-save {
+  flex: 1.5;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent1), var(--accent2));
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+.btn-save:disabled {
+  background: rgba(255,255,255,0.06);
+  color: #555;
+  cursor: default;
+}
+.btn-save:active:not(:disabled) { opacity: 0.85; }
+
+/* ===== IMAGE VIEWER ===== */
+.viewer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.92);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.viewer-img {
+  max-width: 95%;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.viewer-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ===== State =====
+const DAYS_JP = ["日","月","火","水","木","金","土"];
+const MONTHS_JP = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+const COLORS = ["#E8564A","#F4A623","#4ECDC4","#6C5CE7","#FF6B9D","#45B7D1","#96CEB4","#A29BFE"];
+
+let state = {
+  year: new Date().getFullYear(),
+  month: new Date().getMonth(),
+  selectedDate: null,
+  events: loadEvents(),
+  modalOpen: false,
+  editingEvent: null,
+  viewerImage: null,
+  form: { title: "", time: "", description: "", color: COLORS[0], images: [] }
+};
+
+function loadEvents() {
+  try {
+    const d = localStorage.getItem("cal_events");
+    return d ? JSON.parse(d) : {};
+  } catch { return {}; }
+}
+
+function saveEvents() {
+  try { localStorage.setItem("cal_events", JSON.stringify(state.events)); } catch {}
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+}
+
+function getDaysInMonth(y, m) { return new Date(y, m+1, 0).getDate(); }
+function getFirstDay(y, m) { return new Date(y, m, 1).getDay(); }
+function fmtDate(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+}
+
+const todayStr = fmtDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+// ===== Render =====
+function render() {
+  const app = document.getElementById("app");
+  app.innerHTML = renderHeader() + renderCalendar() + renderDetail();
+  if (state.modalOpen) app.innerHTML += renderModal();
+  if (state.viewerImage) app.innerHTML += renderViewer();
+  bindEvents();
+}
+
+function renderHeader() {
+  return `
+    <div class="header">
+      <div>
+        <div class="header-title">SCHEDULE</div>
+        <div class="header-sub">カレンダー & スケジュール管理</div>
+      </div>
+      <div class="month-nav">
+        <button data-action="prev-month">◂</button>
+        <span class="month-label">${state.year}年 ${MONTHS_JP[state.month]}</span>
+        <button data-action="next-month">▸</button>
+      </div>
+    </div>`;
+}
+
+function renderCalendar() {
+  const days = getDaysInMonth(state.year, state.month);
+  const first = getFirstDay(state.year, state.month);
+
+  let headers = DAYS_JP.map((d,i) =>
+    `<div class="day-header ${i===0?'sun':''}${i===6?'sat':''}">${d}</div>`
+  ).join("");
+
+  let cells = "";
+  for (let i = 0; i < first; i++) cells += `<div></div>`;
+  for (let d = 1; d <= days; d++) {
+    const ds = fmtDate(state.year, state.month, d);
+    const dow = (first + d - 1) % 7;
+    const isToday = ds === todayStr;
+    const isSel = ds === state.selectedDate;
+    const evts = state.events[ds] || [];
+
+    let dots = "";
+    if (evts.length > 0) {
+      dots = `<div class="event-dots">${evts.slice(0,4).map(e =>
+        `<div class="event-dot" style="background:${e.color}"></div>`
+      ).join("")}</div>`;
+    }
+
+    cells += `<div class="cal-cell ${isToday?'today':''} ${isSel?'selected':''}" data-date="${ds}">
+      <div class="day-num ${dow===0?'sun':''} ${dow===6?'sat':''}">${d}</div>
+      ${dots}
+    </div>`;
+  }
+
+  return `<div class="cal-section">
+    <div class="day-headers">${headers}</div>
+    <div class="cal-grid">${cells}</div>
+  </div>`;
+}
+
+function renderDetail() {
+  if (!state.selectedDate) {
+    return `<div class="detail-panel">
+      <div class="placeholder-state">
+        <div class="empty-icon">📆</div>
+        <div class="empty-text">日付をタップして<br>スケジュールを確認</div>
+      </div>
+    </div>`;
+  }
+
+  const parts = state.selectedDate.split("-");
+  const evts = state.events[state.selectedDate] || [];
+
+  let cards = "";
+  if (evts.length === 0) {
+    cards = `<div class="empty-state">
+      <div class="empty-icon">📅</div>
+      <div class="empty-text">予定はありません</div>
+    </div>`;
+  } else {
+    cards = evts.map(ev => {
+      let imgs = "";
+      if (ev.images && ev.images.length > 0) {
+        const cls = ev.images.length === 1 ? "single" : "multi";
+        imgs = `<div class="event-images ${cls}">${ev.images.map(img =>
+          `<div class="event-img-wrap"><img class="event-img" src="${img}" data-action="view-image" data-src="${img}"></div>`
+        ).join("")}</div>`;
+      }
+      return `<div class="event-card">
+        <div class="event-card-accent" style="background:${ev.color}"></div>
+        <div class="event-card-body">
+          ${ev.time ? `<div class="event-time" style="color:${ev.color}">${ev.time}</div>` : ""}
+          <div class="event-title">${escHtml(ev.title)}</div>
+          ${ev.description ? `<div class="event-desc">${escHtml(ev.description)}</div>` : ""}
+          ${imgs}
+          <div class="event-actions">
+            <button class="ev-btn" data-action="edit-event" data-id="${ev.id}">編集</button>
+            <button class="ev-btn danger" data-action="delete-event" data-id="${ev.id}">削除</button>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  return `<div class="detail-panel">
+    <div class="detail-header">
+      <div>
+        <div class="detail-date">${parseInt(parts[2])}日</div>
+        <div class="detail-month">${MONTHS_JP[parseInt(parts[1])-1]} ${parts[0]}</div>
+      </div>
+      <button class="add-btn" data-action="new-event">+ 追加</button>
+    </div>
+    ${cards}
+  </div>`;
+}
+
+function renderModal() {
+  const f = state.form;
+  const isEdit = !!state.editingEvent;
+
+  let previews = "";
+  if (f.images.length > 0) {
+    previews = `<div class="preview-grid">${f.images.map((img, i) =>
+      `<div class="preview-item">
+        <img src="${img}">
+        <button class="preview-remove" data-action="remove-image" data-idx="${i}">×</button>
+      </div>`
+    ).join("")}</div>`;
+  }
+
+  const colors = COLORS.map(c =>
+    `<div class="color-dot ${f.color===c?'active':''}" style="background:${c}" data-action="set-color" data-color="${c}"></div>`
+  ).join("");
+
+  return `<div class="modal-overlay" data-action="close-modal">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div class="modal-title">${isEdit ? '予定を編集' : '新しい予定'}</div>
+
+      <div class="form-group">
+        <label class="form-label">タイトル *</label>
+        <input class="form-input" id="f-title" value="${escAttr(f.title)}" placeholder="予定のタイトル">
+      </div>
+      <div class="form-group">
+        <label class="form-label">時間</label>
+        <input class="form-input" id="f-time" type="time" value="${escAttr(f.time)}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">メモ</label>
+        <textarea class="form-input" id="f-desc" rows="3" placeholder="詳細やメモを入力...">${escHtml(f.description)}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">カラー</label>
+        <div class="color-row">${colors}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">画像</label>
+        <input type="file" id="f-file" accept="image/*" multiple style="display:none">
+        <button class="upload-zone" data-action="upload-image">📷 画像を追加</button>
+        ${previews}
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" data-action="close-modal">キャンセル</button>
+        <button class="btn-save" ${!f.title.trim()?'disabled':''} data-action="save-event">${isEdit?'更新':'保存'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderViewer() {
+  return `<div class="viewer-overlay" data-action="close-viewer">
+    <img class="viewer-img" src="${state.viewerImage}">
+    <button class="viewer-close" data-action="close-viewer">×</button>
+  </div>`;
+}
+
+// ===== Event Binding =====
+function bindEvents() {
+  document.querySelectorAll("[data-action]").forEach(el => {
+    const action = el.dataset.action;
+    if (action === "prev-month") el.onclick = () => { prevMonth(); render(); };
+    else if (action === "next-month") el.onclick = () => { nextMonth(); render(); };
+    else if (action === "new-event") el.onclick = () => openNew();
+    else if (action === "close-modal") el.onclick = () => closeModal();
+    else if (action === "save-event") el.onclick = () => saveEvent();
+    else if (action === "set-color") el.onclick = () => { state.form.color = el.dataset.color; render(); syncFormValues(); };
+    else if (action === "upload-image") el.onclick = () => document.getElementById("f-file")?.click();
+    else if (action === "remove-image") el.onclick = () => { state.form.images.splice(+el.dataset.idx, 1); render(); syncFormValues(); };
+    else if (action === "edit-event") el.onclick = () => openEdit(el.dataset.id);
+    else if (action === "delete-event") el.onclick = () => deleteEvent(el.dataset.id);
+    else if (action === "view-image") el.onclick = (e) => { e.stopPropagation(); state.viewerImage = el.dataset.src; render(); };
+    else if (action === "close-viewer") el.onclick = () => { state.viewerImage = null; render(); };
+  });
+
+  document.querySelectorAll(".cal-cell[data-date]").forEach(el => {
+    el.onclick = () => { state.selectedDate = el.dataset.date; render(); };
+  });
+
+  const fileInput = document.getElementById("f-file");
+  if (fileInput) {
+    fileInput.onchange = (e) => {
+      Array.from(e.target.files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          state.form.images.push(ev.target.result);
+          render();
+          syncFormValues();
+        };
+        reader.readAsDataURL(file);
+      });
+    };
+  }
+
+  // Sync form inputs on change
+  const titleEl = document.getElementById("f-title");
+  const timeEl = document.getElementById("f-time");
+  const descEl = document.getElementById("f-desc");
+  if (titleEl) titleEl.oninput = () => { state.form.title = titleEl.value; updateSaveBtn(); };
+  if (timeEl) timeEl.oninput = () => { state.form.time = timeEl.value; };
+  if (descEl) descEl.oninput = () => { state.form.description = descEl.value; };
+}
+
+function syncFormValues() {
+  const t = document.getElementById("f-title");
+  const ti = document.getElementById("f-time");
+  const d = document.getElementById("f-desc");
+  if (t) t.value = state.form.title;
+  if (ti) ti.value = state.form.time;
+  if (d) d.value = state.form.description;
+}
+
+function updateSaveBtn() {
+  const btn = document.querySelector("[data-action='save-event']");
+  if (btn) btn.disabled = !state.form.title.trim();
+}
+
+// ===== Actions =====
+function prevMonth() {
+  if (state.month === 0) { state.year--; state.month = 11; }
+  else state.month--;
+}
+function nextMonth() {
+  if (state.month === 11) { state.year++; state.month = 0; }
+  else state.month++;
+}
+
+function openNew() {
+  state.form = { title: "", time: "", description: "", color: COLORS[0], images: [] };
+  state.editingEvent = null;
+  state.modalOpen = true;
+  render();
+  setTimeout(() => document.getElementById("f-title")?.focus(), 100);
+}
+
+function openEdit(id) {
+  const evts = state.events[state.selectedDate] || [];
+  const ev = evts.find(e => e.id === id);
+  if (!ev) return;
+  state.editingEvent = ev;
+  state.form = { title: ev.title, time: ev.time||"", description: ev.description||"", color: ev.color, images: [...(ev.images||[])] };
+  state.modalOpen = true;
+  render();
+}
+
+function closeModal() {
+  state.modalOpen = false;
+  state.editingEvent = null;
+  render();
+}
+
+function saveEvent() {
+  const f = state.form;
+  if (!f.title.trim()) return;
+  const ds = state.selectedDate;
+  if (!ds) return;
+
+  const evData = {
+    id: state.editingEvent ? state.editingEvent.id : genId(),
+    title: f.title.trim(),
+    time: f.time,
+    description: f.description.trim(),
+    color: f.color,
+    images: [...f.images]
+  };
+
+  if (!state.events[ds]) state.events[ds] = [];
+  if (state.editingEvent) {
+    const idx = state.events[ds].findIndex(e => e.id === state.editingEvent.id);
+    if (idx !== -1) state.events[ds][idx] = evData;
+  } else {
+    state.events[ds].push(evData);
+  }
+
+  saveEvents();
+  closeModal();
+}
+
+function deleteEvent(id) {
+  const ds = state.selectedDate;
+  if (!ds || !state.events[ds]) return;
+  state.events[ds] = state.events[ds].filter(e => e.id !== id);
+  if (state.events[ds].length === 0) delete state.events[ds];
+  saveEvents();
+  render();
+}
+
+function escHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function escAttr(s) { return s.replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+// ===== Init =====
+render();
+
+// ===== Service Worker Registration =====
+if ('serviceWorker' in navigator) {
+  const swCode = `
+    const CACHE = 'schedule-v1';
+    const ASSETS = ['./', './index.html'];
+    self.addEventListener('install', e => {
+      e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+      self.skipWaiting();
+    });
+    self.addEventListener('activate', e => {
+      e.waitUntil(caches.keys().then(keys =>
+        Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+      ));
+      self.clients.claim();
+    });
+    self.addEventListener('fetch', e => {
+      e.respondWith(
+        caches.match(e.request).then(r => r || fetch(e.request).catch(() =>
+          caches.match('./index.html')
+        ))
+      );
+    });
+  `;
+  const swBlob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl).catch(() => {});
+}
+</script>
+</body>
+</html>
